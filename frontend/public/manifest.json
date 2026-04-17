@@ -1,0 +1,9 @@
+{
+  "name": "PharmaPOS",
+  "short_name": "PharmaPOS",
+  "description": "Offline-ready pharmacy inventory and POS system",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f8fafc",
+  "theme_color": "#1d4ed8"
+}
