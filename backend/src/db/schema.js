@@ -1,13 +1,19 @@
 const Database = require('better-sqlite3');
+const fs = require('fs');
 const path = require('path');
 
-// Database file stored in backend root for easy access
-const DB_PATH = path.join(__dirname, '../../pharmacy.db');
+// Render: set DB_PATH=/var/data/pharmacy.db and mount persistent disk at /var/data
+// Local dev fallback keeps DB in backend root.
+const DB_PATH = process.env.DB_PATH || path.join(__dirname, '../../pharmacy.db');
 
 let db;
 
 function getDb() {
   if (!db) {
+    const dbDir = path.dirname(DB_PATH);
+    if (!fs.existsSync(dbDir)) {
+      fs.mkdirSync(dbDir, { recursive: true });
+    }
     db = new Database(DB_PATH);
     db.pragma('journal_mode = WAL'); // Better concurrent performance
     db.pragma('foreign_keys = ON');  // Enforce FK constraints
