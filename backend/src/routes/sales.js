@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { getDb } = require('../db/schema');
+const { requireAuth } = require('../middleware/auth');
 
 function getSaleWithItems(db, saleId) {
   const sale = db.prepare('SELECT * FROM sales WHERE id = ?').get(saleId);
@@ -47,8 +48,8 @@ function computeFifoBatchDeductions(db, productId, quantityNeeded) {
   return deductions;
 }
 
-// POST /sales - process a sale (FIFO deduction + transaction recording)
-router.post('/', (req, res) => {
+// POST /sales - process a sale (requires authentication, any role)
+router.post('/', requireAuth, (req, res) => {
   try {
     const db = getDb();
     const {
@@ -56,9 +57,12 @@ router.post('/', (req, res) => {
       discount_type,
       discount_pct,
       cash_tendered,
-      cashier,
       external_id,
     } = req.body;
+
+    // Use the logged-in user as cashier
+    const cashierName = req.user.username;
+    const userId = req.user.id;
 
     if (!items || items.length === 0) {
       return res.status(400).json({ error: 'Cart is empty' });
@@ -97,8 +101,8 @@ router.post('/', (req, res) => {
     // 3) Execute all writes atomically.
     const processSale = db.transaction(() => {
       const saleResult = db.prepare(`
-        INSERT INTO sales (external_id, total_amount, discount_type, discount_pct, cash_tendered, change_given, cashier)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO sales (external_id, total_amount, discount_type, discount_pct, cash_tendered, change_given, cashier, user_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
       `).run(
         normalizedExternalId,
         totalAmount,
@@ -106,7 +110,8 @@ router.post('/', (req, res) => {
         discPct,
         cash_tendered || null,
         changeGiven,
-        cashier || 'cashier'
+        cashierName,
+        userId
       );
 
       const saleId = saleResult.lastInsertRowid;
@@ -150,8 +155,8 @@ router.post('/', (req, res) => {
   }
 });
 
-// GET /sales - list all sales (with optional date filter)
-router.get('/', (req, res) => {
+// GET /sales - list all sales (admin only)
+router.get('/', requireAuth, (req, res) => {
   try {
     const db = getDb();
     const { date, limit = 50, offset = 0 } = req.query;
@@ -174,8 +179,8 @@ router.get('/', (req, res) => {
   }
 });
 
-// GET /sales/:id - single sale with line items
-router.get('/:id', (req, res) => {
+// GET /sales/:id - single sale with line items (admin only)
+router.get('/:id', requireAuth, (req, res) => {
   try {
     const db = getDb();
     const sale = db.prepare('SELECT * FROM sales WHERE id = ?').get(req.params.id);

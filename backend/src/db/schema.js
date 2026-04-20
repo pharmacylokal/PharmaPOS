@@ -1,4 +1,5 @@
 const Database = require('better-sqlite3');
+const bcrypt = require('bcryptjs');
 const fs = require('fs');
 const path = require('path');
 
@@ -62,11 +63,13 @@ function initializeSchema() {
       date         DATETIME DEFAULT CURRENT_TIMESTAMP,
       external_id  TEXT UNIQUE,
       total_amount REAL    NOT NULL,
-      discount_type TEXT,                -- 'senior', 'pwd', 'manual', or NULL
+      discount_type TEXT,                -- \x27senior\x27, \x27pwd\x27, \x27manual\x27, or NULL
       discount_pct  REAL DEFAULT 0,     -- Discount percentage applied
       cash_tendered REAL,
       change_given  REAL,
-      cashier       TEXT DEFAULT 'cashier'
+      cashier      TEXT DEFAULT \x27cashier\x27,
+      user_id      INTEGER,
+      FOREIGN KEY (user_id) REFERENCES users(id)
     );
 
     -- Sale items: line items linked to specific batches
@@ -83,6 +86,18 @@ function initializeSchema() {
       FOREIGN KEY (product_id) REFERENCES products(id)
     );
 
+    -- Users table: stores authentication credentials
+    CREATE TABLE IF NOT EXISTS users (
+      id           INTEGER PRIMARY KEY AUTOINCREMENT,
+      username     TEXT UNIQUE NOT NULL,
+      password_hash TEXT NOT NULL,
+      role         TEXT NOT NULL DEFAULT \x27cashier\x27 CHECK(role IN (\x27admin\x27, \x27cashier\x27)),
+      created_at   DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    -- Index for user lookups
+    CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
+
     -- Index for sales reports
     CREATE INDEX IF NOT EXISTS idx_sales_date ON sales(date);
     CREATE INDEX IF NOT EXISTS idx_sale_items_sale ON sale_items(sale_id);
@@ -96,6 +111,23 @@ function initializeSchema() {
     db.exec('ALTER TABLE sales ADD COLUMN external_id TEXT;');
   }
   db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_sales_external_id ON sales(external_id);');
+
+  // Migration: add user_id column if missing
+  const hasUserId = salesColumns.some((col) => col.name === 'user_id');
+  if (!hasUserId) {
+    db.exec('ALTER TABLE sales ADD COLUMN user_id INTEGER;');
+  }
+
+  // Create default admin user if no users exist
+  const userCount = db.prepare('SELECT COUNT(*) as count FROM users').get();
+  if (userCount.count === 0) {
+    const defaultPasswordHash = bcrypt.hashSync('admin123', 10);
+    db.prepare(`
+      INSERT INTO users (username, password_hash, role)
+      VALUES (?, ?, ?)
+    `).run('admin', defaultPasswordHash, 'admin');
+    console.log('Default admin user created: admin / admin123');
+  }
 
   console.log('Database schema initialized');
 }

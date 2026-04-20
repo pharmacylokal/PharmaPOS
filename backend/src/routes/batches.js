@@ -1,8 +1,9 @@
 const express = require('express');
 const router = express.Router();
 const { getDb } = require('../db/schema');
+const { requireAuth, requireAdmin } = require('../middleware/auth');
 
-// GET /batches/:product_id — all batches for a product, ordered by expiry (FIFO order)
+// GET /batches/:product_id - Anyone can view batches
 router.get('/:product_id', (req, res) => {
   try {
     const db = getDb();
@@ -20,8 +21,8 @@ router.get('/:product_id', (req, res) => {
   }
 });
 
-// POST /batches — add a new batch to a product
-router.post('/', (req, res) => {
+// POST /batches - ADMIN ONLY
+router.post('/', requireAuth, requireAdmin, (req, res) => {
   try {
     const db = getDb();
     const { product_id, batch_number, expiry_date, quantity, cost_price, selling_price } = req.body;
@@ -59,8 +60,8 @@ router.post('/', (req, res) => {
   }
 });
 
-// PUT /batches/:id — update batch (e.g., adjust stock, fix price)
-router.put('/:id', (req, res) => {
+// PUT /batches/:id - ADMIN ONLY
+router.put('/:id', requireAuth, requireAdmin, (req, res) => {
   try {
     const db = getDb();
     const { batch_number, expiry_date, quantity, cost_price, selling_price } = req.body;
@@ -97,8 +98,8 @@ router.put('/:id', (req, res) => {
   }
 });
 
-// DELETE /batches/:id
-router.delete('/:id', (req, res) => {
+// DELETE /batches/:id - ADMIN ONLY
+router.delete('/:id', requireAuth, requireAdmin, (req, res) => {
   try {
     const db = getDb();
     const batch = db.prepare('SELECT id FROM batches WHERE id = ?').get(req.params.id);

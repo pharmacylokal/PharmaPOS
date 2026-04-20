@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
+import { useAuth } from '../context/AuthContext';
 import {
   api,
   getApiBaseUrl,
@@ -9,14 +10,31 @@ import {
   syncPendingChanges,
 } from '../api/client';
 
-// Tab navigation items
-const TABS = [
-  { id: 'pos',       label: 'POS',       icon: '🛒' },
-  { id: 'inventory', label: 'Inventory', icon: '📦' },
-  { id: 'reports',   label: 'Reports',   icon: '📊' },
+// ============================================================
+// TAB CONFIGURATION - Role-based visibility
+// ============================================================
+const ALL_TABS = [
+  { id: 'pos',       label: 'POS',       icon: '??' },
+  { id: 'inventory', label: 'Inventory', icon: '??' },
+  { id: 'reports',   label: 'Reports',   icon: '??' },
 ];
 
 export default function Layout({ activeTab, setActiveTab, children }) {
+  const { user, logout, isAdmin } = useAuth();
+  
+  // Filter tabs based on role
+  // Cashiers can only access POS
+  const visibleTabs = isAdmin() 
+    ? ALL_TABS 
+    : ALL_TABS.filter(tab => tab.id === 'pos');
+  
+  // Redirect cashiers away from restricted tabs
+  useEffect(() => {
+    if (!isAdmin() && visibleTabs.length === 1 && activeTab !== 'pos') {
+      setActiveTab('pos');
+    }
+  }, [isAdmin, visibleTabs, activeTab, setActiveTab]);
+
   const [isOnline, setIsOnline] = useState(typeof navigator !== 'undefined' ? navigator.onLine : true);
   const [apiStatus, setApiStatus] = useState('checking');
   const [apiUrl, setApiUrl] = useState(getApiBaseUrl());
@@ -96,20 +114,27 @@ export default function Layout({ activeTab, setActiveTab, children }) {
     toast.success('API URL updated');
   };
 
+  const handleLogout = () => {
+    logout();
+    toast.success('Logged out successfully');
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
       {/* Top navbar */}
       <header className="bg-blue-700 text-white shadow-md">
         <div className="max-w-screen-xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <span className="text-2xl">💊</span>
+            <span className="text-2xl">??</span>
             <div>
               <h1 className="text-lg font-bold leading-none">PharmaPOS</h1>
               <p className="text-xs text-blue-200">Pharmacy Inventory & POS System</p>
             </div>
           </div>
+          
+          {/* Navigation tabs - only show tabs user can access */}
           <nav className="flex gap-1">
-            {TABS.map(tab => (
+            {visibleTabs.map(tab => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
@@ -123,13 +148,39 @@ export default function Layout({ activeTab, setActiveTab, children }) {
               </button>
             ))}
           </nav>
+          
           <div className="flex items-center gap-3">
+            {/* Status badges */}
             <div className={`text-xs px-2.5 py-1 rounded-full font-semibold ${statusLabel.className}`}>
               {statusLabel.text}
             </div>
             <div className={`text-xs px-2.5 py-1 rounded-full font-semibold ${pendingSyncCount > 0 ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-700'}`}>
               {isSyncing ? `Syncing ${pendingSyncCount}` : `Pending Sync ${pendingSyncCount}`}
             </div>
+            
+            {/* User info and logout - only for logged in users */}
+            {user && (
+              <>
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 rounded-lg">
+                  <span className="text-sm font-medium">{user.username}</span>
+                  <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${
+                    user.role === 'admin' 
+                      ? 'bg-amber-400 text-amber-900' 
+                      : 'bg-blue-300 text-blue-900'
+                  }`}>
+                    {user.role === 'admin' ? 'ADMIN' : 'CASHIER'}
+                  </span>
+                </div>
+                <button
+                  onClick={handleLogout}
+                  className="text-xs px-3 py-1.5 rounded-lg bg-red-500 hover:bg-red-400 text-white"
+                  title="Logout"
+                >
+                  Logout
+                </button>
+              </>
+            )}
+            
             <button
               onClick={() => { setDraftApiUrl(apiUrl); setShowApiSettings(true); }}
               className="text-xs px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-blue-50"
@@ -171,7 +222,7 @@ export default function Layout({ activeTab, setActiveTab, children }) {
                 </p>
               </div>
               <button onClick={() => setShowApiSettings(false)} className="text-2xl leading-none text-gray-400 hover:text-gray-600">
-                ×
+                �
               </button>
             </div>
 

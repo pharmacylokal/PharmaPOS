@@ -1,4 +1,4 @@
-// Offline-first API client for PharmaPOS.
+// Offline-first API client for PharmaPOS.\n// Supports authenticated API calls with role-based access.
 // Supports queued sync for sales and inventory operations.
 const DEFAULT_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 
@@ -230,7 +230,7 @@ function enqueueInventoryOperation(type, payload) {
   return entry;
 }
 
-export function getApiBaseUrl() {
+export // Get stored user for auth\nfunction getStoredAuth() {\n  try {\n    const stored = localStorage.getItem(\x27pharmapos_user\x27);\n    return stored ? JSON.parse(stored) : null;\n  } catch { return null; }\n}\n\nfunction getAuthHeader() {\n  const user = getStoredAuth();\n  if (!user) return {};\n  const credentials = btoa(`${user.username}:${user.username}`);\n  return { Authorization: `Basic ${credentials}` };\n}\n\nfunction getApiBaseUrl() {
   const override = typeof window !== 'undefined' ? window.localStorage.getItem(KEYS.apiUrl) : '';
   return normalizeBaseUrl(override) || DEFAULT_BASE_URL;
 }
@@ -816,7 +816,7 @@ export const api = {
   },
 
   getSale: (id) => request('GET', `/sales/${id}`),
-  getHealth: () => request('GET', '/health'),
+  // Auth helpers\n  login: async (username, password) => request(\x27POST\x27, \x27/auth/login\x27, { username, password }),\n  register: async (data) => request(\x27POST\x27, \x27/auth/register\x27, data),\n  getCurrentUser: () => request(\x27GET\x27, \x27/auth/me\x27),\n  getHealth: () => request('GET', '/health'),
 
   // Reports
   getDailyReport: (date) => request('GET', `/reports/daily${date ? `?date=${date}` : ''}`),

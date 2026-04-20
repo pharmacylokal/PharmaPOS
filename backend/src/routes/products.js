@@ -1,8 +1,9 @@
 const express = require('express');
 const router = express.Router();
 const { getDb } = require('../db/schema');
+const { requireAuth, requireAdmin } = require('../middleware/auth');
 
-// GET /products — list all products with total available stock
+// GET /products - Anyone can list products
 router.get('/', (req, res) => {
   try {
     const db = getDb();
@@ -49,7 +50,7 @@ router.get('/', (req, res) => {
   }
 });
 
-// GET /products/categories/list — unique categories
+// GET /products/categories/list - Anyone can list categories
 router.get('/categories/list', (req, res) => {
   try {
     const db = getDb();
@@ -62,7 +63,7 @@ router.get('/categories/list', (req, res) => {
   }
 });
 
-// GET /products/:id — single product with all batches
+// GET /products/:id - Anyone can view product details
 router.get('/:id', (req, res) => {
   try {
     const db = getDb();
@@ -79,8 +80,8 @@ router.get('/:id', (req, res) => {
   }
 });
 
-// POST /products — create new product
-router.post('/', (req, res) => {
+// POST /products - ADMIN ONLY
+router.post('/', requireAuth, requireAdmin, (req, res) => {
   try {
     const db = getDb();
     const { name, generic_name, barcode, category } = req.body;
@@ -103,8 +104,8 @@ router.post('/', (req, res) => {
   }
 });
 
-// PUT /products/:id — update product
-router.put('/:id', (req, res) => {
+// PUT /products/:id - ADMIN ONLY
+router.put('/:id', requireAuth, requireAdmin, (req, res) => {
   try {
     const db = getDb();
     const { name, generic_name, barcode, category } = req.body;
@@ -131,8 +132,8 @@ router.put('/:id', (req, res) => {
   }
 });
 
-// DELETE /products/:id
-router.delete('/:id', (req, res) => {
+// DELETE /products/:id - ADMIN ONLY
+router.delete('/:id', requireAuth, requireAdmin, (req, res) => {
   try {
     const db = getDb();
     const product = db.prepare('SELECT id FROM products WHERE id = ?').get(req.params.id);

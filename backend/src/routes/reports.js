@@ -1,9 +1,12 @@
 const express = require('express');
 const router = express.Router();
 const { getDb } = require('../db/schema');
+const { requireAuth, requireAdmin } = require('../middleware/auth');
 
-// GET /reports/daily?date=YYYY-MM-DD — daily sales summary
-router.get('/daily', (req, res) => {
+// All report endpoints require admin authentication
+
+// GET /reports/daily?date=YYYY-MM-DD - daily sales summary (ADMIN ONLY)
+router.get('/daily', requireAuth, requireAdmin, (req, res) => {
   try {
     const db = getDb();
     const date = req.query.date || new Date().toISOString().split('T')[0];
@@ -14,7 +17,7 @@ router.get('/daily', (req, res) => {
         COUNT(*) as total_transactions,
         COALESCE(SUM(total_amount), 0) as total_revenue,
         COALESCE(SUM(CASE WHEN discount_type IS NOT NULL THEN total_amount END), 0) as discounted_sales,
-        COALESCE(SUM(CASE WHEN discount_type = 'senior' OR discount_type = 'pwd' THEN 1 ELSE 0 END), 0) as sc_pwd_transactions
+        COALESCE(SUM(CASE WHEN discount_type = ''senior'' OR discount_type = ''pwd'' THEN 1 ELSE 0 END), 0) as sc_pwd_transactions
       FROM sales
       WHERE DATE(date) = ?
     `).get(date);
@@ -46,8 +49,8 @@ router.get('/daily', (req, res) => {
   }
 });
 
-// GET /reports/inventory — current stock levels per product
-router.get('/inventory', (req, res) => {
+// GET /reports/inventory - current stock levels per product (ADMIN ONLY)
+router.get('/inventory', requireAuth, requireAdmin, (req, res) => {
   try {
     const db = getDb();
 
@@ -84,8 +87,8 @@ router.get('/inventory', (req, res) => {
   }
 });
 
-// GET /reports/expiring?days=30 — products expiring within N days
-router.get('/expiring', (req, res) => {
+// GET /reports/expiring?days=30 - products expiring within N days (ADMIN ONLY)
+router.get('/expiring', requireAuth, requireAdmin, (req, res) => {
   try {
     const db = getDb();
     const days = parseInt(req.query.days) || 30;
@@ -133,8 +136,8 @@ router.get('/expiring', (req, res) => {
   }
 });
 
-// GET /reports/daily/csv?date=YYYY-MM-DD — export daily report as CSV
-router.get('/daily/csv', (req, res) => {
+// GET /reports/daily/csv?date=YYYY-MM-DD - export daily report as CSV (ADMIN ONLY)
+router.get('/daily/csv', requireAuth, requireAdmin, (req, res) => {
   try {
     const db = getDb();
     const date = req.query.date || new Date().toISOString().split('T')[0];
@@ -178,8 +181,8 @@ router.get('/daily/csv', (req, res) => {
   }
 });
 
-// GET /reports/inventory/csv — export inventory as CSV
-router.get('/inventory/csv', (req, res) => {
+// GET /reports/inventory/csv - export inventory as CSV (ADMIN ONLY)
+router.get('/inventory/csv', requireAuth, requireAdmin, (req, res) => {
   try {
     const db = getDb();
 
