@@ -6,6 +6,7 @@ import Layout from './components/Layout';
 import POS from './pages/POS';
 import Inventory from './pages/Inventory';
 import Reports from './pages/Reports';
+import Users from './pages/Users';
 
 // Inner component that uses auth context
 function AppContent() {
@@ -30,6 +31,7 @@ function AppContent() {
     ...(isAdmin() ? {
       inventory: <Inventory />,
       reports: <Reports />,
+      users: <Users />,
     } : {})
   };
 

@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
 import { useAuth } from '../context/AuthContext';
+import ChangePasswordModal from './ChangePasswordModal';
 import {
   api,
   getApiBaseUrl,
@@ -17,13 +18,13 @@ const ALL_TABS = [
   { id: 'pos',       label: 'POS',       icon: '??' },
   { id: 'inventory', label: 'Inventory', icon: '??' },
   { id: 'reports',   label: 'Reports',   icon: '??' },
+  { id: 'users',     label: 'Users',     icon: '??' },
 ];
 
 export default function Layout({ activeTab, setActiveTab, children }) {
   const { user, logout, isAdmin } = useAuth();
   
   // Filter tabs based on role
-  // Cashiers can only access POS
   const visibleTabs = isAdmin() 
     ? ALL_TABS 
     : ALL_TABS.filter(tab => tab.id === 'pos');
@@ -42,6 +43,8 @@ export default function Layout({ activeTab, setActiveTab, children }) {
   const [draftApiUrl, setDraftApiUrl] = useState(getApiBaseUrl());
   const [pendingSyncCount, setPendingSyncCount] = useState(getPendingSyncCount());
   const [isSyncing, setIsSyncing] = useState(false);
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [showChangePassword, setShowChangePassword] = useState(false);
 
   useEffect(() => {
     return subscribeToSyncStatus((status) => {
@@ -116,6 +119,7 @@ export default function Layout({ activeTab, setActiveTab, children }) {
 
   const handleLogout = () => {
     logout();
+    setShowProfileMenu(false);
     toast.success('Logged out successfully');
   };
 
@@ -141,10 +145,10 @@ export default function Layout({ activeTab, setActiveTab, children }) {
                 className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                   activeTab === tab.id
                     ? 'bg-white text-blue-700'
-                    : 'text-blue-100 hover:bg-blue-600'
+                    : 'text-white hover:bg-blue-600'
                 }`}
               >
-                {tab.icon} {tab.label}
+                {tab.label}
               </button>
             ))}
           </nav>
@@ -158,26 +162,48 @@ export default function Layout({ activeTab, setActiveTab, children }) {
               {isSyncing ? `Syncing ${pendingSyncCount}` : `Pending Sync ${pendingSyncCount}`}
             </div>
             
-            {/* User info and logout - only for logged in users */}
+            {/* User info and profile menu */}
             {user && (
               <>
-                <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 rounded-lg">
-                  <span className="text-sm font-medium">{user.username}</span>
-                  <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${
-                    user.role === 'admin' 
-                      ? 'bg-amber-400 text-amber-900' 
-                      : 'bg-blue-300 text-blue-900'
-                  }`}>
-                    {user.role === 'admin' ? 'ADMIN' : 'CASHIER'}
-                  </span>
+                <div className="relative">
+                  <button
+                    onClick={() => setShowProfileMenu(!showProfileMenu)}
+                    className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 rounded-lg hover:bg-blue-500 transition-colors"
+                  >
+                    <span className="text-sm font-medium">{user.username}</span>
+                    <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${
+                      user.role === 'admin' 
+                        ? 'bg-amber-400 text-amber-900' 
+                        : 'bg-blue-300 text-blue-900'
+                    }`}>
+                      {user.role === 'admin' ? 'ADMIN' : 'CASHIER'}
+                    </span>
+                  </button>
+                  
+                  {/* Profile dropdown menu */}
+                  {showProfileMenu && (
+                    <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-xl border z-50 overflow-hidden">
+                      <div className="p-3 border-b bg-gray-50">
+                        <p className="font-medium text-gray-900">{user.username}</p>
+                        <p className="text-xs text-gray-500 capitalize">{user.role}</p>
+                      </div>
+                      <div className="py-1">
+                        <button
+                          onClick={() => { setShowChangePassword(true); setShowProfileMenu(false); }}
+                          className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+                        >
+                          Change Password
+                        </button>
+                        <button
+                          onClick={handleLogout}
+                          className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 transition-colors"
+                        >
+                          Logout
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
-                <button
-                  onClick={handleLogout}
-                  className="text-xs px-3 py-1.5 rounded-lg bg-red-500 hover:bg-red-400 text-white"
-                  title="Logout"
-                >
-                  Logout
-                </button>
               </>
             )}
             
@@ -211,6 +237,7 @@ export default function Layout({ activeTab, setActiveTab, children }) {
         {children}
       </main>
 
+      {/* API Settings Modal */}
       {showApiSettings && (
         <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center px-4">
           <div className="w-full max-w-lg bg-white rounded-2xl shadow-xl p-6">
@@ -222,7 +249,7 @@ export default function Layout({ activeTab, setActiveTab, children }) {
                 </p>
               </div>
               <button onClick={() => setShowApiSettings(false)} className="text-2xl leading-none text-gray-400 hover:text-gray-600">
-                ×
+                ï¿½
               </button>
             </div>
 
@@ -262,6 +289,18 @@ export default function Layout({ activeTab, setActiveTab, children }) {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Change Password Modal */}
+      <ChangePasswordModal
+        isOpen={showChangePassword}
+        onClose={() => setShowChangePassword(false)}
+        user={user}
+      />
+
+      {/* Click outside to close profile menu */}
+      {showProfileMenu && (
+        <div className="fixed inset-0 z-40" onClick={() => setShowProfileMenu(false)} />
       )}
     </div>
   );
