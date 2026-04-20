@@ -1,6 +1,6 @@
 // Offline-first API client for PharmaPOS.\n// Supports authenticated API calls with role-based access.
 // Supports queued sync for sales and inventory operations.
-const DEFAULT_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+const DEFAULT_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3002';
 
 const KEYS = {
   apiUrl: 'pharmapos_api_url',
@@ -230,7 +230,24 @@ function enqueueInventoryOperation(type, payload) {
   return entry;
 }
 
-export // Get stored user for auth\nfunction getStoredAuth() {\n  try {\n    const stored = localStorage.getItem(\x27pharmapos_user\x27);\n    return stored ? JSON.parse(stored) : null;\n  } catch { return null; }\n}\n\nfunction getAuthHeader() {\n  const user = getStoredAuth();\n  if (!user) return {};\n  const credentials = btoa(`${user.username}:${user.username}`);\n  return { Authorization: `Basic ${credentials}` };\n}\n\nfunction getApiBaseUrl() {
+// Get stored user for auth
+function getStoredAuth() {
+  try {
+    const stored = localStorage.getItem('pharmapos_user');
+    return stored ? JSON.parse(stored) : null;
+  } catch { return null; }
+}
+
+// Get auth header
+function getAuthHeader() {
+  const user = getStoredAuth();
+  if (!user) return {};
+  const credentials = btoa(`${user.username}:${user.username}`);
+  return { Authorization: `Basic ${credentials}` };
+}
+
+// Get API base URL
+export function getApiBaseUrl() {
   const override = typeof window !== 'undefined' ? window.localStorage.getItem(KEYS.apiUrl) : '';
   return normalizeBaseUrl(override) || DEFAULT_BASE_URL;
 }

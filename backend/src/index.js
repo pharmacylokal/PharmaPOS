@@ -5,7 +5,8 @@ const { getDb } = require('./db/schema');
 getDb();
 
 const app = express();
-const PORT = process.env.PORT || 3001;
+const path = require('path');
+const PORT = process.env.PORT || 3002;
 const HOST = process.env.HOST || '0.0.0.0';
 
 function normalizeOrigin(origin) {
@@ -60,6 +61,9 @@ app.use((err, req, res, next) => {
   console.error("Unhandled error:", err);
   res.status(500).json({ error: "Internal server error" });
 });
+
+app.use(express.static(path.join(__dirname, '../frontend/build')));
+app.get('*', (req, res) => res.sendFile(path.join(__dirname, '../frontend/build/index.html')));
 
 app.listen(PORT, HOST, () => {
   console.log("\nPharmacy API running on http://" + HOST + ":" + PORT);

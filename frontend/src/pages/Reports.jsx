@@ -115,9 +115,8 @@ function DailyReport({ date, onDateChange, data, loading }) {
         </div>
         <button onClick={handleExportDaily} className="bg-green-600 text-white text-sm px-4 py-2 rounded-lg hover:bg-green-700">
           ⬇ Export CSV
-        </a>
+        </button>
       </div>
-
       {loading ? <Spinner /> : data && (
         <>
           {/* Summary cards */}
@@ -217,7 +216,7 @@ function InventoryReport({ data, loading }) {
         <p className="text-sm text-gray-600">{inventory.length} products tracked</p>
         <button onClick={handleExportInventory} className="bg-green-600 text-white text-sm px-4 py-2 rounded-lg hover:bg-green-700">
           ⬇ Export CSV
-        </a>
+        </button>
       </div>
 
       {data && (
