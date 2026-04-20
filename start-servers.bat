@@ -1,0 +1,1 @@
+cd /d %~dp0backend && start cmd /k "node src/index.js" && cd /d %~dp0 && start cmd /k "node serve.js"
