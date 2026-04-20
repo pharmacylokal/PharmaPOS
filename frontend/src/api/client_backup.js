@@ -230,7 +230,7 @@ function enqueueInventoryOperation(type, payload) {
   return entry;
 }
 
-export // Get stored user for auth\nfunction getStoredAuth() {\n  try {\n    const stored = localStorage.getItem(\x27pharmapos_user\x27);\n    return stored ? JSON.parse(stored) : null;\n  } catch { return null; }\n}\n\nfunction getAuthHeader() {\n  const user = getStoredAuth();\n  if (!user) return {};\n  const credentials = btoa(`${user.username}:${user.username}`);\n  return { Authorization: `Basic ${credentials}` };\n}\n\nfunction getApiBaseUrl() {
+// Get stored user for auth\nfunction getStoredAuth() {\n  try {\n    const stored = localStorage.getItem(\x27pharmapos_user\x27);\n    return stored ? JSON.parse(stored) : null;\n  } catch { return null; }\n}\n\nfunction getAuthHeader() {\n  const user = getStoredAuth();\n  if (!user) return {};\n  const credentials = btoa(`${user.username}:${user.username}`);\n  return { Authorization: `Basic ${credentials}` };\n}\n\nfunction getApiBaseUrl() {
   const override = typeof window !== 'undefined' ? window.localStorage.getItem(KEYS.apiUrl) : '';
   return normalizeBaseUrl(override) || DEFAULT_BASE_URL;
 }
@@ -280,13 +280,7 @@ export function subscribeToSyncStatus(listener) {
 }
 
 async function request(method, path, body = null) {
-  const storedUser = readJson('pharmapos_user', null);
-  const storedPass = readJson('pharmapos_password', null);
-  const authHeaders = {};
-  if (storedUser && storedPass) {
-    authHeaders['Authorization'] = 'Basic ' + btoa(storedUser.username + ':' + storedPass);
-  }
-  const opts = { method, headers: { ...authHeaders } };
+  const opts = { method, headers: {} };
   if (body) {
     opts.headers['Content-Type'] = 'application/json';
     opts.body = JSON.stringify(body);
@@ -833,24 +827,5 @@ export const api = {
   getCsvUrl: (type, params = {}) => {
     const qs = new URLSearchParams(params).toString();
     return `${getApiBaseUrl()}/reports/${type}/csv${qs ? `?${qs}` : ''}`;
-  },
-  downloadCsv: async (type, params = {}, filename) => {
-    const storedUser = readJson('pharmapos_user', null);
-    const storedPass = readJson('pharmapos_password', null);
-    const authHeaders = {};
-    if (storedUser && storedPass) {
-      authHeaders['Authorization'] = 'Basic ' + btoa(storedUser.username + ':' + storedPass);
-    }
-    const qs = new URLSearchParams(params).toString();
-    const url = `${getApiBaseUrl()}/reports/${type}/csv${qs ? `?${qs}` : ''}`;
-    const response = await fetch(url, { headers: authHeaders });
-    if (!response.ok) throw new Error('Download failed');
-    const blob = await response.blob();
-    const blobUrl = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = blobUrl;
-    a.download = filename || `export_${type}_${new Date().toISOString().split('T')[0]}.csv`;
-    a.click();
-    URL.revokeObjectURL(blobUrl);
   },
 };

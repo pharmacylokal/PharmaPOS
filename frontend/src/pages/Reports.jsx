@@ -94,7 +94,7 @@ export default function Reports() {
 
 // ── Daily Sales Report ────────────────────────────────────────
 function DailyReport({ date, onDateChange, data, loading }) {
-  const csvUrl = api.getCsvUrl('daily', { date });
+  const handleExportDaily = () => api.downloadCsv('daily', { date }, `sales_${date}.csv`);
   const summary = data?.summary || {
     total_transactions: 0,
     total_revenue: 0,
@@ -113,7 +113,7 @@ function DailyReport({ date, onDateChange, data, loading }) {
           <input type="date" value={date} onChange={e => onDateChange(e.target.value)}
             className="border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
         </div>
-        <a href={csvUrl} download className="bg-green-600 text-white text-sm px-4 py-2 rounded-lg hover:bg-green-700">
+        <button onClick={handleExportDaily} className="bg-green-600 text-white text-sm px-4 py-2 rounded-lg hover:bg-green-700">
           ⬇ Export CSV
         </a>
       </div>
@@ -206,7 +206,7 @@ function DailyReport({ date, onDateChange, data, loading }) {
 
 // ── Inventory Report ──────────────────────────────────────────
 function InventoryReport({ data, loading }) {
-  const csvUrl = api.getCsvUrl('inventory');
+  const handleExportInventory = () => api.downloadCsv('inventory', {}, `inventory_${new Date().toISOString().split('T')[0]}.csv`);
   const inventory = Array.isArray(data?.inventory) ? data.inventory : [];
 
   if (loading) return <Spinner />;
@@ -215,7 +215,7 @@ function InventoryReport({ data, loading }) {
     <div className="space-y-4">
       <div className="bg-white rounded-xl border p-4 flex justify-between items-center">
         <p className="text-sm text-gray-600">{inventory.length} products tracked</p>
-        <a href={csvUrl} download className="bg-green-600 text-white text-sm px-4 py-2 rounded-lg hover:bg-green-700">
+        <button onClick={handleExportInventory} className="bg-green-600 text-white text-sm px-4 py-2 rounded-lg hover:bg-green-700">
           ⬇ Export CSV
         </a>
       </div>

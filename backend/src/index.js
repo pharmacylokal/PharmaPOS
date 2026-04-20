@@ -9,7 +9,7 @@ const PORT = process.env.PORT || 3001;
 const HOST = process.env.HOST || '0.0.0.0';
 
 function normalizeOrigin(origin) {
-  return String(origin || '').trim().replace(/.+/, '').toLowerCase();
+  return String(origin || '').trim().replace(/\/+$/, '').toLowerCase();
 }
 
 const ENV_ALLOWED_ORIGINS = (process.env.CORS_ORIGIN || '')
