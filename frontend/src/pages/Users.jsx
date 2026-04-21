@@ -99,7 +99,7 @@ export default function Users() {
   const [success, setSuccess] = useState('');
   const [expandedGroups, setExpandedGroups] = useState({});
 
-  const baseUrl = localStorage.getItem('pharmapos_api_url') || 'http://localhost:3001';
+  const baseUrl = localStorage.getItem('pharmapos_api_url') || 'https://pharmapos-2.onrender.com';
   const isAdmin = currentUser?.role === 'admin';
 
   const fetchUsers = async () => {
