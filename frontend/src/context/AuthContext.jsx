@@ -47,7 +47,7 @@ export function AuthProvider({ children }) {
   const login = async (username, password) => {
     setLoading(true);
     try {
-      const baseUrl = localStorage.getItem('pharmapos_api_url') || 'http://localhost:3001';
+      const baseUrl = localStorage.getItem('pharmapos_api_url') || 'https://pharmapos-2.onrender.com';
       const response = await fetch(`${baseUrl}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
