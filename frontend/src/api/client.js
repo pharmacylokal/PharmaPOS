@@ -1,6 +1,6 @@
 // Offline-first API client for PharmaPOS.\n// Supports authenticated API calls with role-based access.
 // Supports queued sync for sales and inventory operations.
-const DEFAULT_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+const DEFAULT_BASE_URL = process.env.REACT_APP_API_URL || 'https://pharmapos-2.onrender.com';
 
 const KEYS = {
   apiUrl: 'pharmapos_api_url',
@@ -488,7 +488,8 @@ function updateCachesFromOnlineBatches(productId, batches) {
   writeProductsCache(products);
 }
 
-﻿
+
+
 function applyPendingOfflineOperationsToCache() {
   var products=readProductsCache();
   var batchesByProduct=readBatchesCache();
@@ -502,12 +503,10 @@ function applyPendingOfflineOperationsToCache() {
     else if(op.type==='delete_batch'){for(var k2 in batchesByProduct){var filt=batchesByProduct[k2].filter(function(b){return String(b.id)!==String(op.payload.id);});if(filt.length!==batchesByProduct[k2].length)batchesByProduct[k2]=filt;}}
   }
   var salesQueue=readSalesQueue();
-  for(var si=0;si<salesQueue.length;si++){var sale=salesQueue[si];if(sale.payload && sale.payload.items){for(var ji=0;ji<sale.payload.items.length;ji++){var item=sale.payload.items[ji];var pid2=String(item.product_id);var bList=batchesByProduct[pid2]||[];var rem=item.quantity;for(var bi=0;bi<bList.length && rem>0;bi++){var batchIdx=bList.findIndex(function(b){return String(b.id)===String(bList[bi].id);});if(batchIdx>=0)bList[batchIdx]=Object.assign({},bList[batchIdx],{quantity:Math.max(0,toNumber(bList[batchIdx].quantity,0)-Math.min(toNumber(bList[bi].quantity,0),rem)});rem-=Math.min(toNumber(bList[bi].quantity,0),rem);}batchesByProduct[pid2]=bList;var pIdx=products.findIndex(function(p){return String(p.id)===String(pid2);});if(pIdx>=0)recomputeProduct(products,batchesByProduct,pid2);}}}
+  for(var si=0;si<salesQueue.length;si++){var sale=salesQueue[si];if(sale.payload&&sale.payload.items){for(var ji=0;ji<sale.payload.items.length;ji++){var item=sale.payload.items[ji];var pid2=String(item.product_id);var bList=batchesByProduct[pid2]||[];var rem=item.quantity;for(var bi=0;bi<bList.length&&rem>0;bi++){var batchIdx=bList.findIndex(function(b){return String(b.id)===String(bList[bi].id);});if(batchIdx>=0)bList[batchIdx]=Object.assign({},bList[batchIdx],{quantity:Math.max(0,toNumber(bList[batchIdx].quantity,0)-Math.min(toNumber(bList[bi].quantity,0),rem))});rem=rem-Math.min(toNumber(bList[bi].quantity,0),rem);}batchesByProduct[pid2]=bList;var pIdx=products.findIndex(function(p){return String(p.id)===String(pid2);});if(pIdx>=0)recomputeProduct(products,batchesByProduct,pid2);}}}
   writeProductsCache(products);
   writeBatchesCache(batchesByProduct);
 }
-
-
 function applyOfflineSaleToCache(salePayload) {
   const products=readProductsCache();
   const batchesByProduct=readBatchesCache();
