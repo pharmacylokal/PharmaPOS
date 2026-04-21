@@ -483,11 +483,52 @@ function updateCachesFromOnlineBatches(productId, batches) {
   const batchesByProduct = readBatchesCache();
   setProductBatches(productId, batches, batchesByProduct);
   writeBatchesCache(batchesByProduct);
-
   const products = readProductsCache();
   recomputeProduct(products, batchesByProduct, productId);
   writeProductsCache(products);
 }
+
+﻿
+function applyPendingOfflineOperationsToCache() {
+  var products=readProductsCache();
+  var batchesByProduct=readBatchesCache();
+  var invQueue=readInventoryQueue();
+  for(var i=0;i<invQueue.length;i++){var op=invQueue[i];
+    if(op.type==='update_product'){var uIdx=products.findIndex(function(p){return String(p.id)===String(op.payload.id);});if(uIdx>=0)products[uIdx]=Object.assign({},products[uIdx],op.payload);}
+    else if(op.type==='delete_product'){var filtered=products.filter(function(p){return String(p.id)!==String(op.payload.id);});if(filtered.length!==products.length)products=filtered;}
+    else if(op.type==='create_product'){products.push({id:op.payload.local_id,name:op.payload.name,generic_name:op.payload.generic_name||null,category:op.payload.category||null,total_stock:0});}
+    else if(op.type==='create_batch'){var pid=String(op.payload.product_id);var existing=batchesByProduct[pid]||[];existing.push({id:op.payload.local_id,product_id:pid,batch_number:op.payload.batch_number,expiry_date:op.payload.expiry_date,quantity:op.payload.quantity,selling_price:op.payload.selling_price});batchesByProduct[pid]=existing;}
+    else if(op.type==='update_batch'){for(var key in batchesByProduct){var bIdx=batchesByProduct[key].findIndex(function(b){return String(b.id)===String(op.payload.id);});if(bIdx>=0)batchesByProduct[key][bIdx]=Object.assign({},batchesByProduct[key][bIdx],op.payload);}}
+    else if(op.type==='delete_batch'){for(var k2 in batchesByProduct){var filt=batchesByProduct[k2].filter(function(b){return String(b.id)!==String(op.payload.id);});if(filt.length!==batchesByProduct[k2].length)batchesByProduct[k2]=filt;}}
+  }
+  var salesQueue=readSalesQueue();
+  for(var si=0;si<salesQueue.length;si++){var sale=salesQueue[si];if(sale.payload && sale.payload.items){for(var ji=0;ji<sale.payload.items.length;ji++){var item=sale.payload.items[ji];var pid2=String(item.product_id);var bList=batchesByProduct[pid2]||[];var rem=item.quantity;for(var bi=0;bi<bList.length && rem>0;bi++){var batchIdx=bList.findIndex(function(b){return String(b.id)===String(bList[bi].id);});if(batchIdx>=0)bList[batchIdx]=Object.assign({},bList[batchIdx],{quantity:Math.max(0,toNumber(bList[batchIdx].quantity,0)-Math.min(toNumber(bList[bi].quantity,0),rem)});rem-=Math.min(toNumber(bList[bi].quantity,0),rem);}batchesByProduct[pid2]=bList;var pIdx=products.findIndex(function(p){return String(p.id)===String(pid2);});if(pIdx>=0)recomputeProduct(products,batchesByProduct,pid2);}}}
+  writeProductsCache(products);
+  writeBatchesCache(batchesByProduct);
+}
+
+
+function applyOfflineSaleToCache(salePayload) {
+  const products=readProductsCache();
+  const batchesByProduct=readBatchesCache();
+  for(const item of salePayload.items||[]) {
+    const pid=String(item.product_id);
+    const batches=getProductBatches(pid,batchesByProduct);
+    let remaining=item.quantity;
+    for(const d of batches) {
+      if(remaining<=0)break;
+      const take=Math.min(toNumber(d.quantity,0),remaining);
+      const idx=batches.findIndex(b=>String(b.id)===String(d.id));
+      if(idx>=0)batches[idx]={...batches[idx],quantity:Math.max(0,toNumber(batches[idx].quantity,0)-take)};
+      batchesByProduct[pid]=batches;
+      remaining-=take;
+    }
+    recomputeProduct(products,batchesByProduct,pid);
+  }
+  writeBatchesCache(batchesByProduct);
+  writeProductsCache(products);
+}
+
 
 export async function syncPendingSales({ maxItems = 25 } = {}) {
   const queue = [...readSalesQueue()];
@@ -689,6 +730,7 @@ export const api = {
       return data;
     } catch (error) {
       if (error.code !== 'NETWORK') throw error;
+      applyPendingOfflineOperationsToCache();
       return filterProducts(readProductsCache(), params);
     }
   },
@@ -765,6 +807,7 @@ export const api = {
       return data;
     } catch (error) {
       if (error.code !== 'NETWORK') throw error;
+      applyPendingOfflineOperationsToCache();
       return getProductBatches(productId, readBatchesCache());
     }
   },
