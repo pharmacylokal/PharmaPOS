@@ -328,8 +328,7 @@ async function request(method, path, body = null) {
 
   if (!res.ok) {
     const error = new Error(data.error || `Request failed: ${res.status}`);
-    error.code = 'HTTP';
-    error.status = res.status;
+    error.code = 'HTTP'; error.status = res.status; if (res.status === 401) error.code = 'UNAUTHORIZED';
     throw error;
   }
 
@@ -728,7 +727,7 @@ export const api = {
       updateCachesFromOnlineProducts(data);
       return data;
     } catch (error) {
-      if (error.code !== 'NETWORK') throw error;
+      if (error.code !== 'NETWORK' && error.code !== 'UNAUTHORIZED') throw error;
       applyPendingOfflineOperationsToCache();
       return filterProducts(readProductsCache(), params);
     }
@@ -738,7 +737,7 @@ export const api = {
     try {
       return await request('GET', `/products/${id}`);
     } catch (error) {
-      if (error.code !== 'NETWORK') throw error;
+      if (error.code !== 'NETWORK' && error.code !== 'UNAUTHORIZED') throw error;
       const product = readProductsCache().find((p) => String(p.id) === String(id));
       if (!product) throw new Error('Product not found');
       const batches = getProductBatches(id, readBatchesCache());
@@ -752,7 +751,7 @@ export const api = {
       updateCachesFromOnlineProducts(await api.getProducts());
       return created;
     } catch (error) {
-      if (error.code !== 'NETWORK') throw error;
+      if (error.code !== 'NETWORK' && error.code !== 'UNAUTHORIZED') throw error;
       const localPayload = { ...data, local_id: createExternalId('offline-product') };
       const created = applyInventoryLocalOperation('create_product', localPayload);
       enqueueInventoryOperation('create_product', localPayload);
@@ -766,7 +765,7 @@ export const api = {
       updateCachesFromOnlineProducts(await api.getProducts());
       return updated;
     } catch (error) {
-      if (error.code !== 'NETWORK') throw error;
+      if (error.code !== 'NETWORK' && error.code !== 'UNAUTHORIZED') throw error;
       const payload = { id, ...data };
       const updated = applyInventoryLocalOperation('update_product', payload);
       enqueueInventoryOperation('update_product', payload);
@@ -780,7 +779,7 @@ export const api = {
       applyInventoryLocalOperation('delete_product', { id });
       return result;
     } catch (error) {
-      if (error.code !== 'NETWORK') throw error;
+      if (error.code !== 'NETWORK' && error.code !== 'UNAUTHORIZED') throw error;
       applyInventoryLocalOperation('delete_product', { id });
       enqueueInventoryOperation('delete_product', { id });
       return { success: true, queued_offline: true };
@@ -793,7 +792,7 @@ export const api = {
       writeCategoriesCache(Array.from(new Set([...readCategoriesCache(), ...categories])));
       return categories;
     } catch (error) {
-      if (error.code !== 'NETWORK') throw error;
+      if (error.code !== 'NETWORK' && error.code !== 'UNAUTHORIZED') throw error;
       return readCategoriesCache();
     }
   },
@@ -805,7 +804,7 @@ export const api = {
       updateCachesFromOnlineBatches(productId, data);
       return data;
     } catch (error) {
-      if (error.code !== 'NETWORK') throw error;
+      if (error.code !== 'NETWORK' && error.code !== 'UNAUTHORIZED') throw error;
       applyPendingOfflineOperationsToCache();
       return getProductBatches(productId, readBatchesCache());
     }
@@ -818,7 +817,7 @@ export const api = {
       updateCachesFromOnlineBatches(data.product_id, list);
       return created;
     } catch (error) {
-      if (error.code !== 'NETWORK') throw error;
+      if (error.code !== 'NETWORK' && error.code !== 'UNAUTHORIZED') throw error;
       const localPayload = { ...data, local_id: createExternalId('offline-batch') };
       const created = applyInventoryLocalOperation('create_batch', localPayload);
       enqueueInventoryOperation('create_batch', localPayload);
@@ -831,7 +830,7 @@ export const api = {
       const updated = await request('PUT', `/batches/${id}`, data);
       return updated;
     } catch (error) {
-      if (error.code !== 'NETWORK') throw error;
+      if (error.code !== 'NETWORK' && error.code !== 'UNAUTHORIZED') throw error;
       const payload = { id, ...data };
       const updated = applyInventoryLocalOperation('update_batch', payload);
       enqueueInventoryOperation('update_batch', payload);
@@ -845,7 +844,7 @@ export const api = {
       applyInventoryLocalOperation('delete_batch', { id });
       return result;
     } catch (error) {
-      if (error.code !== 'NETWORK') throw error;
+      if (error.code !== 'NETWORK' && error.code !== 'UNAUTHORIZED') throw error;
       applyInventoryLocalOperation('delete_batch', { id });
       enqueueInventoryOperation('delete_batch', { id });
       return { success: true, queued_offline: true };
@@ -858,7 +857,7 @@ export const api = {
     try {
       return await request('POST', '/sales', payload);
     } catch (error) {
-      if (error.code !== 'NETWORK') throw error;
+      if (error.code !== 'NETWORK' && error.code !== 'UNAUTHORIZED') throw error;
       const queued = enqueueSalesOperation(payload);
       return {
         queued_offline: true,
