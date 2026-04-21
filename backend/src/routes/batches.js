@@ -1,7 +1,7 @@
-const express = require('express');
+﻿const express = require('express');
 const router = express.Router();
 const { getDb } = require('../db/schema');
-const { requireAuth, requireAdmin } = require('../middleware/auth');
+const { requireAuth, requirePermission } = require('../middleware/auth');
 
 // GET /batches/:product_id - Anyone can view batches
 router.get('/:product_id', (req, res) => {
@@ -21,8 +21,8 @@ router.get('/:product_id', (req, res) => {
   }
 });
 
-// POST /batches - ADMIN ONLY
-router.post('/', requireAuth, requireAdmin, (req, res) => {
+// POST /batches - Requires inventory_edit permission
+router.post('/', requireAuth, requirePermission('inventory_edit'), (req, res) => {
   try {
     const db = getDb();
     const { product_id, batch_number, expiry_date, quantity, cost_price, selling_price } = req.body;
@@ -30,7 +30,6 @@ router.post('/', requireAuth, requireAdmin, (req, res) => {
     const parsedCostPrice = Number(cost_price || 0);
     const parsedSellingPrice = Number(selling_price);
 
-    // Validate required fields
     if (!product_id || !batch_number || !expiry_date || Number.isNaN(parsedQuantity) || Number.isNaN(parsedSellingPrice)) {
       return res.status(400).json({ 
         error: 'Required: product_id, batch_number, expiry_date, quantity, selling_price' 
@@ -43,7 +42,6 @@ router.post('/', requireAuth, requireAdmin, (req, res) => {
       return res.status(400).json({ error: 'Prices cannot be negative' });
     }
 
-    // Check product exists
     const product = db.prepare('SELECT id FROM products WHERE id = ?').get(product_id);
     if (!product) return res.status(404).json({ error: 'Product not found' });
 
@@ -60,8 +58,8 @@ router.post('/', requireAuth, requireAdmin, (req, res) => {
   }
 });
 
-// PUT /batches/:id - ADMIN ONLY
-router.put('/:id', requireAuth, requireAdmin, (req, res) => {
+// PUT /batches/:id - Requires inventory_edit permission
+router.put('/:id', requireAuth, requirePermission('inventory_edit'), (req, res) => {
   try {
     const db = getDb();
     const { batch_number, expiry_date, quantity, cost_price, selling_price } = req.body;
@@ -98,8 +96,8 @@ router.put('/:id', requireAuth, requireAdmin, (req, res) => {
   }
 });
 
-// DELETE /batches/:id - ADMIN ONLY
-router.delete('/:id', requireAuth, requireAdmin, (req, res) => {
+// DELETE /batches/:id - Requires inventory_edit permission
+router.delete('/:id', requireAuth, requirePermission('inventory_edit'), (req, res) => {
   try {
     const db = getDb();
     const batch = db.prepare('SELECT id FROM batches WHERE id = ?').get(req.params.id);
@@ -109,6 +107,7 @@ router.delete('/:id', requireAuth, requireAdmin, (req, res) => {
     if (result.changes === 0) {
       return res.status(404).json({ error: 'Batch not found' });
     }
+
     res.json({ success: true });
   } catch (err) {
     if (err.message.includes('FOREIGN KEY constraint failed')) {

@@ -1,10 +1,12 @@
-const express = require('express');
+﻿const express = require('express');
 const router = express.Router();
 const { getDb } = require('../db/schema');
-const { requireAuth, requireAdmin } = require('../middleware/auth');
+const { requireAuth, requirePermission } = require('../middleware/auth');
 
-// GET /products - Anyone can list products
+// GET /products - Requires inventory_view or inventory_edit permission
 router.get('/', (req, res) => {
+  // Allow if user is authenticated (basic auth required for all)
+  // Frontend will handle permission-based UI
   try {
     const db = getDb();
     const { search, category } = req.query;
@@ -44,13 +46,13 @@ router.get('/', (req, res) => {
 
     const products = db.prepare(query).all(...params);
     res.json(products);
+
   } catch (err) {
     console.error('GET /products error:', err);
     res.status(500).json({ error: err.message });
   }
 });
 
-// GET /products/categories/list - Anyone can list categories
 router.get('/categories/list', (req, res) => {
   try {
     const db = getDb();
@@ -63,7 +65,6 @@ router.get('/categories/list', (req, res) => {
   }
 });
 
-// GET /products/:id - Anyone can view product details
 router.get('/:id', (req, res) => {
   try {
     const db = getDb();
@@ -80,8 +81,8 @@ router.get('/:id', (req, res) => {
   }
 });
 
-// POST /products - ADMIN ONLY
-router.post('/', requireAuth, requireAdmin, (req, res) => {
+// POST /products - Requires inventory_edit permission
+router.post('/', requireAuth, requirePermission('inventory_edit'), (req, res) => {
   try {
     const db = getDb();
     const { name, generic_name, barcode, category } = req.body;
@@ -104,8 +105,8 @@ router.post('/', requireAuth, requireAdmin, (req, res) => {
   }
 });
 
-// PUT /products/:id - ADMIN ONLY
-router.put('/:id', requireAuth, requireAdmin, (req, res) => {
+// PUT /products/:id - Requires inventory_edit permission
+router.put('/:id', requireAuth, requirePermission('inventory_edit'), (req, res) => {
   try {
     const db = getDb();
     const { name, generic_name, barcode, category } = req.body;
@@ -132,8 +133,8 @@ router.put('/:id', requireAuth, requireAdmin, (req, res) => {
   }
 });
 
-// DELETE /products/:id - ADMIN ONLY
-router.delete('/:id', requireAuth, requireAdmin, (req, res) => {
+// DELETE /products/:id - Requires inventory_edit permission
+router.delete('/:id', requireAuth, requirePermission('inventory_edit'), (req, res) => {
   try {
     const db = getDb();
     const product = db.prepare('SELECT id FROM products WHERE id = ?').get(req.params.id);

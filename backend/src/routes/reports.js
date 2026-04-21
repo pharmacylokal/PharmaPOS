@@ -1,28 +1,24 @@
 const express = require('express');
 const router = express.Router();
 const { getDb } = require('../db/schema');
-const { requireAuth, requireAdmin } = require('../middleware/auth');
+const { requireAuth, requireAdmin, requirePermission } = require('../middleware/auth');
 
-// All report endpoints require admin authentication
-
-// GET /reports/daily?date=YYYY-MM-DD - daily sales summary (ADMIN ONLY)
-router.get('/daily', requireAuth, requireAdmin, (req, res) => {
+// GET /reports/daily?date=YYYY-MM-DD - daily sales summary
+router.get('/daily', requireAuth, requirePermission('reports_access'), (req, res) => {
   try {
     const db = getDb();
     const date = req.query.date || new Date().toISOString().split('T')[0];
 
-    // Sales summary for the day
     const summary = db.prepare(`
       SELECT 
         COUNT(*) as total_transactions,
         COALESCE(SUM(total_amount), 0) as total_revenue,
         COALESCE(SUM(CASE WHEN discount_type IS NOT NULL THEN total_amount END), 0) as discounted_sales,
-        COALESCE(SUM(CASE WHEN discount_type = ''senior'' OR discount_type = ''pwd'' THEN 1 ELSE 0 END), 0) as sc_pwd_transactions
+        COALESCE(SUM(CASE WHEN discount_type = 'senior' OR discount_type = 'pwd' THEN 1 ELSE 0 END), 0) as sc_pwd_transactions
       FROM sales
       WHERE DATE(date) = ?
     `).get(date);
 
-    // Per-product breakdown
     const breakdown = db.prepare(`
       SELECT 
         p.name as product_name,
@@ -38,7 +34,6 @@ router.get('/daily', requireAuth, requireAdmin, (req, res) => {
       ORDER BY revenue DESC
     `).all(date);
 
-    // All individual transactions
     const transactions = db.prepare(`
       SELECT * FROM sales WHERE DATE(date) = ? ORDER BY date DESC
     `).all(date);
@@ -49,8 +44,8 @@ router.get('/daily', requireAuth, requireAdmin, (req, res) => {
   }
 });
 
-// GET /reports/inventory - current stock levels per product (ADMIN ONLY)
-router.get('/inventory', requireAuth, requireAdmin, (req, res) => {
+// GET /reports/inventory - current stock levels per product
+router.get('/inventory', requireAuth, requirePermission('reports_access'), (req, res) => {
   try {
     const db = getDb();
 
@@ -73,7 +68,6 @@ router.get('/inventory', requireAuth, requireAdmin, (req, res) => {
       ORDER BY p.name ASC
     `).all();
 
-    // Also return batch details for each product
     const batches = db.prepare(`
       SELECT b.*, p.name as product_name
       FROM batches b
@@ -87,8 +81,8 @@ router.get('/inventory', requireAuth, requireAdmin, (req, res) => {
   }
 });
 
-// GET /reports/expiring?days=30 - products expiring within N days (ADMIN ONLY)
-router.get('/expiring', requireAuth, requireAdmin, (req, res) => {
+// GET /reports/expiring?days=30 - products expiring within N days
+router.get('/expiring', requireAuth, requirePermission('reports_access'), (req, res) => {
   try {
     const db = getDb();
     const days = parseInt(req.query.days) || 30;
@@ -114,7 +108,6 @@ router.get('/expiring', requireAuth, requireAdmin, (req, res) => {
       ORDER BY b.expiry_date ASC
     `).all(days);
 
-    // Also include already expired with stock (should not be sold!)
     const expired = db.prepare(`
       SELECT 
         b.id as batch_id,
@@ -136,8 +129,8 @@ router.get('/expiring', requireAuth, requireAdmin, (req, res) => {
   }
 });
 
-// GET /reports/daily/csv?date=YYYY-MM-DD - export daily report as CSV (ADMIN ONLY)
-router.get('/daily/csv', requireAuth, requireAdmin, (req, res) => {
+// GET /reports/daily/csv?date=YYYY-MM-DD - export daily report as CSV
+router.get('/daily/csv', requireAuth, requirePermission('reports_export'), (req, res) => {
   try {
     const db = getDb();
     const date = req.query.date || new Date().toISOString().split('T')[0];
@@ -162,7 +155,6 @@ router.get('/daily/csv', requireAuth, requireAdmin, (req, res) => {
       ORDER BY s.date DESC
     `).all(date);
 
-    // Build CSV string
     const headers = ['Sale ID','Date','Product','Generic Name','Qty','Unit Price','Subtotal','Discount Type','Discount %','Total','Cashier'];
     const csvLines = [headers.join(',')];
     for (const row of rows) {
@@ -181,8 +173,8 @@ router.get('/daily/csv', requireAuth, requireAdmin, (req, res) => {
   }
 });
 
-// GET /reports/inventory/csv - export inventory as CSV (ADMIN ONLY)
-router.get('/inventory/csv', requireAuth, requireAdmin, (req, res) => {
+// GET /reports/inventory/csv - export inventory as CSV
+router.get('/inventory/csv', requireAuth, requirePermission('reports_export'), (req, res) => {
   try {
     const db = getDb();
 

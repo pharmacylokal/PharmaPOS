@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { api } from '../api/client';
+import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
 
 const DISCOUNT_OPTIONS = [
@@ -13,6 +14,7 @@ const DISCOUNT_OPTIONS = [
 const peso = (n) => `₱${parseFloat(n || 0).toFixed(2)}`;
 
 export default function POS() {
+  const { user, hasPermission } = useAuth();
   const [searchTerm, setSearchTerm]     = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [cart, setCart]                 = useState([]);
@@ -89,7 +91,7 @@ export default function POS() {
     setCart(prev => prev.filter(i => i.product_id !== productId));
   };
 
-  // ── Totals calculation ───────────────────────────────────────
+  // —— Totals calculation ——
   const subtotal = cart.reduce((sum, i) => sum + i.price * i.quantity, 0);
   const discAmt = subtotal * (parseFloat(discountPct) / 100);
   const total = subtotal - discAmt;
@@ -102,7 +104,7 @@ export default function POS() {
     if (e.target.value !== 'manual') setDiscountPct(opt?.pct || 0);
   };
 
-  // ── Checkout ─────────────────────────────────────────────────
+  // —— Checkout ——
   const handleCheckout = async () => {
     if (cart.length === 0) return toast.error('Cart is empty');
     if (!cashTendered || parseFloat(cashTendered) < total) {
@@ -116,7 +118,7 @@ export default function POS() {
         discount_type: discountType || null,
         discount_pct: parseFloat(discountPct) || 0,
         cash_tendered: parseFloat(cashTendered),
-        cashier: 'cashier',
+        cashier: user?.username || 'staff',
       });
 
       if (result.queued_offline) {
@@ -130,185 +132,168 @@ export default function POS() {
       setDiscountPct(0);
       setCashTendered('');
     } catch (err) {
-      toast.error(err.message);
+      toast.error(err.message || 'Checkout failed');
     } finally {
       setProcessing(false);
     }
   };
 
-  // ── Receipt view ─────────────────────────────────────────────
-  if (receipt) {
-    return <ReceiptView receipt={receipt} onClose={() => setReceipt(null)} />;
-  }
+  if (receipt) return <ReceiptView receipt={receipt} onClose={() => setReceipt(null)} />;
 
   return (
-    <div className="flex gap-4 h-[calc(100vh-100px)]">
-      {/* LEFT: Product Search */}
-      <div className="flex-1 flex flex-col bg-white rounded-xl shadow-sm border overflow-hidden">
-        <div className="p-4 border-b">
+    <div className="flex gap-4 h-[calc(100vh-140px)]">
+      {/* Left panel — product search + cart */}
+      <div className="flex-1 flex flex-col bg-white rounded-xl shadow overflow-hidden">
+        {/* Search */}
+        <div className="p-3 border-b">
           <input
             ref={searchRef}
             type="text"
-            placeholder="🔍 Search product by name, generic name, or barcode..."
             value={searchTerm}
             onChange={e => setSearchTerm(e.target.value)}
             onKeyDown={handleSearchKeyDown}
-            className="w-full px-4 py-3 border-2 border-blue-300 rounded-lg text-lg focus:outline-none focus:border-blue-500"
+            placeholder="Search by name, generic, or barcode..."
+            className="w-full border rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
           />
-          <p className="text-xs text-gray-400 mt-1">Barcode scanner: just scan — it auto-adds if one match found</p>
         </div>
 
-        {/* Search Results */}
-        <div className="flex-1 overflow-y-auto p-2">
-          {searchResults.length === 0 && !searchTerm && (
-            <div className="text-center text-gray-400 mt-16">
-              <p className="text-4xl mb-2">🔍</p>
-              <p>Search for a product to add to cart</p>
-            </div>
-          )}
-          {searchTerm && searchResults.length === 0 && (
-            <div className="text-center text-gray-400 mt-16">
-              <p className="text-4xl mb-2">😕</p>
-              <p>No products found for "{searchTerm}"</p>
-            </div>
-          )}
-          <div className="grid grid-cols-1 gap-2">
+        {/* Search results */}
+        {searchResults.length > 0 && (
+          <div className="border-b max-h-48 overflow-y-auto">
             {searchResults.map(product => (
-              <ProductCard key={product.id} product={product} onAdd={() => addToCart(product)} />
+              <ProductRow key={product.id} product={product} onAdd={addToCart} />
             ))}
+          </div>
+        )}
+
+        {/* Cart */}
+        <div className="flex-1 overflow-y-auto">
+          {cart.length === 0 ? (
+            <div className="p-8 text-center text-gray-400">
+              <p className="text-4xl mb-2">🛒</p>
+              <p>Search products to start a sale</p>
+            </div>
+          ) : (
+            <div className="divide-y">
+              {cart.map(item => (
+                <CartItem
+                  key={item.product_id}
+                  item={item}
+                  onQtyChange={updateQty}
+                  onRemove={removeFromCart}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Totals */}
+        <div className="border-t bg-gray-50 p-4 space-y-2">
+          <div className="flex justify-between text-sm text-gray-500">
+            <span>Subtotal</span><span>{peso(subtotal)}</span>
+          </div>
+          {discAmt > 0 && (
+            <div className="flex justify-between text-green-600 text-sm font-medium">
+              <span>Discount</span><span>-{peso(discAmt)}</span>
+            </div>
+          )}
+          <div className="flex justify-between text-lg font-bold border-t pt-2">
+            <span>TOTAL</span><span className="text-blue-700">{peso(total)}</span>
           </div>
         </div>
       </div>
 
-      {/* RIGHT: Cart + Checkout */}
-      <div className="w-96 flex flex-col gap-3">
-        {/* Cart items */}
-        <div className="flex-1 bg-white rounded-xl shadow-sm border overflow-hidden flex flex-col">
-          <div className="p-3 border-b bg-blue-50 flex items-center justify-between">
-            <h2 className="font-bold text-blue-800">🛒 Cart ({cart.length} items)</h2>
-            {cart.length > 0 && (
-              <button onClick={() => setCart([])} className="text-xs text-red-500 hover:underline">
-                Clear all
-              </button>
-            )}
-          </div>
-          <div className="flex-1 overflow-y-auto divide-y">
-            {cart.length === 0 && (
-              <p className="text-center text-gray-400 mt-8 text-sm">Cart is empty</p>
-            )}
-            {cart.map(item => (
-              <CartItem key={item.product_id} item={item}
-                onQtyChange={updateQty} onRemove={removeFromCart} />
+      {/* Right panel — payment */}
+      <div className="w-80 flex flex-col gap-4">
+        {/* Discount */}
+        <div className="bg-white rounded-xl shadow p-4">
+          <h3 className="font-semibold text-sm text-gray-700 mb-3">Discount</h3>
+          <select
+            value={discountType}
+            onChange={handleDiscountChange}
+            className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+          >
+            {DISCOUNT_OPTIONS.map(opt => (
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
             ))}
-          </div>
-        </div>
-
-        {/* Checkout panel */}
-        <div className="bg-white rounded-xl shadow-sm border p-4 space-y-3">
-          {/* Discount */}
-          <div>
-            <label className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Discount</label>
-            <select
-              value={discountType}
-              onChange={handleDiscountChange}
-              className="w-full mt-1 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
-            >
-              {DISCOUNT_OPTIONS.map(o => (
-                <option key={o.value} value={o.value}>{o.label}</option>
-              ))}
-            </select>
-            {discountType === 'manual' && (
+          </select>
+          {discountType === 'manual' && (
+            <div className="mt-2">
+              <label className="block text-xs text-gray-500 mb-1">Discount %</label>
               <input
                 type="number" min="0" max="100"
-                placeholder="Discount %"
                 value={discountPct}
                 onChange={e => setDiscountPct(e.target.value)}
-                className="w-full mt-1 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
               />
-            )}
-          </div>
-
-          {/* Totals */}
-          <div className="space-y-1 text-sm">
-            <div className="flex justify-between text-gray-600">
-              <span>Subtotal</span><span>{peso(subtotal)}</span>
-            </div>
-            {discAmt > 0 && (
-              <div className="flex justify-between text-green-600 font-medium">
-                <span>Discount ({discountPct}%)</span><span>-{peso(discAmt)}</span>
-              </div>
-            )}
-            <div className="flex justify-between font-bold text-lg border-t pt-2">
-              <span>TOTAL</span><span className="text-blue-700">{peso(total)}</span>
-            </div>
-          </div>
-
-          {/* Cash input */}
-          <div>
-            <label className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Cash Tendered</label>
-            <input
-              type="number" min="0" step="0.01"
-              placeholder="₱ 0.00"
-              value={cashTendered}
-              onChange={e => setCashTendered(e.target.value)}
-              className="w-full mt-1 border-2 border-green-400 rounded-lg px-3 py-2 text-lg font-bold focus:outline-none focus:ring-2 focus:ring-green-500"
-            />
-          </div>
-
-          {/* Change */}
-          {cashTendered && (
-            <div className={`flex justify-between font-bold text-lg rounded-lg p-3 ${
-              change >= 0 ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-600'
-            }`}>
-              <span>Change</span>
-              <span>{change < 0 ? '⚠ Insufficient' : peso(change)}</span>
             </div>
           )}
-
-          {/* Checkout button */}
-          <button
-            onClick={handleCheckout}
-            disabled={processing || cart.length === 0}
-            className="w-full bg-blue-600 text-white py-3 rounded-xl font-bold text-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            {processing ? 'Processing...' : '✅ Complete Sale'}
-          </button>
+          {discAmt > 0 && (
+            <p className="mt-2 text-sm text-green-600 font-medium">
+              Saving {peso(discAmt)}
+            </p>
+          )}
         </div>
+
+        {/* Cash tendered */}
+        <div className="bg-white rounded-xl shadow p-4">
+          <h3 className="font-semibold text-sm text-gray-700 mb-3">Payment</h3>
+          <label className="block text-xs text-gray-500 mb-1">Cash Tendered</label>
+          <input
+            type="number" min="0" step="0.01"
+            value={cashTendered}
+            onChange={e => setCashTendered(e.target.value)}
+            placeholder="₱0.00"
+            className="w-full border rounded-lg px-3 py-2.5 text-lg font-medium focus:outline-none focus:ring-2 focus:ring-blue-400"
+          />
+          {change > 0 && (
+            <div className="mt-3 p-3 bg-blue-50 rounded-lg text-center">
+              <p className="text-xs text-blue-500">Change</p>
+              <p className="text-2xl font-bold text-blue-700">{peso(change)}</p>
+            </div>
+          )}
+        </div>
+
+        {/* Checkout button */}
+        <button
+          onClick={handleCheckout}
+          disabled={cart.length === 0 || processing || !cashTendered || parseFloat(cashTendered) < total}
+          className={`w-full py-4 rounded-xl font-bold text-lg shadow transition-all ${
+            cart.length > 0 && cashTendered && parseFloat(cashTendered) >= total && !processing
+              ? 'bg-blue-600 text-white hover:bg-blue-700'
+              : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+          }`}
+        >
+          {processing ? 'Processing...' : `Pay ${peso(total)}`}
+        </button>
       </div>
     </div>
   );
 }
 
-// ── Sub-components ────────────────────────────────────────────
-
-function ProductCard({ product, onAdd }) {
-  const isLowStock = product.total_stock <= 10 && product.total_stock > 0;
+function ProductRow({ product, onAdd }) {
+  const isLowStock = product.total_stock <= 10;
   const isExpiringSoon = product.nearest_expiry &&
-    new Date(product.nearest_expiry) <= new Date(Date.now() + 30 * 86400000);
+    (new Date(product.nearest_expiry) - new Date()) < 30 * 86400000;
 
   return (
     <button
-      onClick={onAdd}
-      className="text-left w-full p-3 border rounded-lg hover:bg-blue-50 hover:border-blue-400 transition-colors"
+      onClick={() => onAdd(product)}
+      className="w-full px-3 py-2.5 flex items-center gap-3 hover:bg-blue-50 transition-colors text-left"
     >
-      <div className="flex justify-between items-start">
-        <div>
-          <p className="font-semibold text-gray-800">{product.name}</p>
-          {product.generic_name && <p className="text-xs text-gray-500">{product.generic_name}</p>}
-          {product.category && <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">{product.category}</span>}
-        </div>
-        <div className="text-right">
-          <p className="font-bold text-blue-700">₱{parseFloat(product.current_price ?? product.min_price ?? 0).toFixed(2)}</p>
-          <span className={`text-xs px-2 py-0.5 rounded-full ${
-            isLowStock ? 'bg-orange-100 text-orange-700' : 'bg-green-100 text-green-700'
-          }`}>
-            {product.total_stock} in stock
-          </span>
-        </div>
+      <div className="flex-1 min-w-0">
+        <p className="font-medium text-sm text-gray-800 truncate">{product.name}</p>
+        {product.generic_name && <p className="text-xs text-gray-500">{product.generic_name}</p>}
+        {product.category && <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">{product.category}</span>}
       </div>
-      {isExpiringSoon && (
-        <p className="text-xs text-amber-600 mt-1">⚠ Expiring {product.nearest_expiry}</p>
-      )}
+      <div className="text-right">
+        <p className="font-bold text-blue-700">₱{parseFloat(product.current_price ?? product.min_price ?? 0).toFixed(2)}</p>
+        <span className={`text-xs px-2 py-0.5 rounded-full ${
+          isLowStock ? 'bg-orange-100 text-orange-700' : 'bg-green-100 text-green-700'
+        }`}>
+          {product.total_stock} in stock
+        </span>
+      </div>
     </button>
   );
 }
@@ -343,7 +328,6 @@ function CartItem({ item, onQtyChange, onRemove }) {
 function ReceiptView({ receipt, onClose }) {
   const { sale, cart, subtotal, discAmt, total, cashTendered } = receipt;
   const change = cashTendered - total;
-
   const handlePrint = () => window.print();
 
   return (
@@ -410,5 +394,3 @@ function ReceiptView({ receipt, onClose }) {
     </div>
   );
 }
-
-

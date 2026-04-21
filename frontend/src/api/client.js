@@ -1,6 +1,6 @@
 // Offline-first API client for PharmaPOS.\n// Supports authenticated API calls with role-based access.
 // Supports queued sync for sales and inventory operations.
-const DEFAULT_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3002';
+const DEFAULT_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 
 const KEYS = {
   apiUrl: 'pharmapos_api_url',
@@ -298,7 +298,7 @@ export function subscribeToSyncStatus(listener) {
 
 async function request(method, path, body = null) {
   const storedUser = readJson('pharmapos_user', null);
-  const storedPass = readJson('pharmapos_password', null);
+  const storedPass = localStorage.getItem('pharmapos_password');
   const authHeaders = {};
   if (storedUser && storedPass) {
     authHeaders['Authorization'] = 'Basic ' + btoa(storedUser.username + ':' + storedPass);
@@ -853,7 +853,7 @@ export const api = {
   },
   downloadCsv: async (type, params = {}, filename) => {
     const storedUser = readJson('pharmapos_user', null);
-    const storedPass = readJson('pharmapos_password', null);
+    const storedPass = localStorage.getItem('pharmapos_password');
     const authHeaders = {};
     if (storedUser && storedPass) {
       authHeaders['Authorization'] = 'Basic ' + btoa(storedUser.username + ':' + storedPass);

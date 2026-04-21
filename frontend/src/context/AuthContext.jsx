@@ -24,12 +24,13 @@ function storePassword(password) {
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(() => getStoredUser());
   const [loading, setLoading] = useState(false);
+
   useEffect(() => { storeUser(user); }, [user]);
 
   const login = async (username, password) => {
     setLoading(true);
     try {
-      const baseUrl = localStorage.getItem('pharmapos_api_url') || 'http://localhost:3002';
+      const baseUrl = localStorage.getItem('pharmapos_api_url') || 'http://localhost:3001';
       const response = await fetch(`${baseUrl}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -44,7 +45,14 @@ export function AuthProvider({ children }) {
   };
 
   const logout = () => { setUser(null); storePassword(null); };
+
   const isAdmin = () => user?.role === 'admin';
+
+  const hasPermission = (permission) => {
+    if (!user) return false;
+    if (user.role === 'admin') return true;
+    return user.permissions?.includes(permission) || false;
+  };
 
   const getAuthHeader = () => {
     if (!user) return {};
@@ -54,7 +62,7 @@ export function AuthProvider({ children }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, isAdmin, getAuthHeader, loading }}>
+    <AuthContext.Provider value={{ user, login, logout, isAdmin, hasPermission, getAuthHeader, loading }}>
       {children}
     </AuthContext.Provider>
   );

@@ -6,7 +6,7 @@ getDb();
 
 const app = express();
 const path = require('path');
-const PORT = process.env.PORT || 3002;
+const PORT = process.env.PORT || 3001;
 const HOST = process.env.HOST || '0.0.0.0';
 
 function normalizeOrigin(origin) {
@@ -18,7 +18,7 @@ const ENV_ALLOWED_ORIGINS = (process.env.CORS_ORIGIN || '')
   .map((origin) => normalizeOrigin(origin))
   .filter(Boolean);
 
-const DEV_ALLOWED_ORIGINS = ['http://localhost:3000', 'http://127.0.0.1:3000'].map(normalizeOrigin);
+const DEV_ALLOWED_ORIGINS = ['http://localhost:3000', 'http://localhost:8080', 'http://127.0.0.1:3000', 'http://127.0.0.1:8080'].map(normalizeOrigin);
 const ALLOWED_ORIGINS = Array.from(new Set([...DEV_ALLOWED_ORIGINS, ...ENV_ALLOWED_ORIGINS]));
 const corsOptions = {
   origin(origin, callback) {
@@ -43,6 +43,8 @@ app.use((req, res, next) => {
   });
   next();
 });
+
+app.get("/", (req, res) => res.json({ status: "PharmaPOS API", version: "1.0.0" }));
 
 app.use("/auth", require("./routes/auth"));
 app.use("/products", require("./routes/products"));

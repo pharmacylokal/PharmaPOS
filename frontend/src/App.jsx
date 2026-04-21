@@ -10,30 +10,29 @@ import Users from './pages/Users';
 
 // Inner component that uses auth context
 function AppContent() {
-  const { user, isAdmin } = useAuth();
+  const { user, isAdmin, hasPermission } = useAuth();
   const [activeTab, setActiveTab] = useState('pos');
 
-  // Redirect to POS for cashiers on mount
+  // Define pages based on permissions
+  const pages = {
+    pos: <POS />,
+    ...(hasPermission('inventory_view') ? { inventory: <Inventory /> } : {}),
+    ...(hasPermission('reports_access') ? { reports: <Reports /> } : {}),
+    ...(hasPermission('users_view') ? { users: <Users /> } : {}),
+  };
+
+  // Redirect to first available tab if current tab is not accessible
   useEffect(() => {
-    if (!isAdmin() && activeTab !== 'pos') {
-      setActiveTab('pos');
+    const availableTabs = Object.keys(pages);
+    if (!availableTabs.includes(activeTab)) {
+      setActiveTab(availableTabs[0] || 'pos');
     }
-  }, [isAdmin, activeTab]);
+  }, [activeTab, pages]);
 
   // Show login page if not authenticated
   if (!user) {
     return <Login />;
   }
-
-  // Define pages (admins see all, cashiers only see POS)
-  const pages = {
-    pos: <POS />,
-    ...(isAdmin() ? {
-      inventory: <Inventory />,
-      reports: <Reports />,
-      users: <Users />,
-    } : {})
-  };
 
   return (
     <>

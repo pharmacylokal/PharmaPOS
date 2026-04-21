@@ -1,12 +1,16 @@
 const bcrypt = require('bcryptjs');
 const { getDb } = require('../db/schema');
 
-// ============================================================
-// AUTHENTICATION MIDDLEWARE
-// ============================================================
+function parsePermissions(permStr) {
+  if (!permStr) return [];
+  if (Array.isArray(permStr)) return permStr;
+  try {
+    return JSON.parse(permStr);
+  } catch {
+    return [];
+  }
+}
 
-// requireAuth - Ensures user is logged in via Basic Auth header
-// Header format: Authorization: Basic base64(username:password)
 function requireAuth(req, res, next) {
   const authHeader = req.headers.authorization || '';
   
@@ -35,11 +39,11 @@ function requireAuth(req, res, next) {
       return res.status(401).json({ error: 'Invalid username or password' });
     }
 
-    // Attach user info to request (without password)
     req.user = {
       id: user.id,
       username: user.username,
-      role: user.role
+      role: user.role,
+      permissions: parsePermissions(user.permissions)
     };
 
     next();
@@ -49,7 +53,6 @@ function requireAuth(req, res, next) {
   }
 }
 
-// requireAdmin - Ensures user has admin role
 function requireAdmin(req, res, next) {
   if (!req.user || req.user.role !== 'admin') {
     return res.status(403).json({ error: 'Admin access required' });
@@ -57,4 +60,16 @@ function requireAdmin(req, res, next) {
   next();
 }
 
-module.exports = { requireAuth, requireAdmin };
+function requirePermission(permission) {
+  return (req, res, next) => {
+    if (req.user && req.user.role === 'admin') {
+      return next();
+    }
+    if (!req.user || !req.user.permissions.includes(permission)) {
+      return res.status(403).json({ error: 'Permission denied: ' + permission });
+    }
+    next();
+  };
+}
+
+module.exports = { requireAuth, requireAdmin, requirePermission };

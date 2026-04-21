@@ -33,7 +33,7 @@ export default function ChangePasswordModal({ isOpen, onClose, user }) {
 
     setLoading(true);
     try {
-      const baseUrl = localStorage.getItem('pharmapos_api_url') || 'http://localhost:3002';
+      const baseUrl = localStorage.getItem('pharmapos_api_url') || 'http://localhost:3001';
       const storedPass = localStorage.getItem('pharmapos_password');
       const credentials = btoa(`${user.username}:${storedPass}`);
       
